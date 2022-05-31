@@ -1,6 +1,7 @@
 #include <dbus/dbus.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@ enum Orientation { Undefined, Normal, RightUp, LeftUp, BottomUp };
 
 DBusError error;
 char* output = "eDP-1";
+char* toggled_devices[] = {"2821:6582:Asus_Keyboard", "type:touchpad"};
 
 void dbus_disconnect(DBusConnection* connection) {
     dbus_connection_flush(connection);
@@ -82,22 +84,34 @@ void system_fmt(char* format, ...) {
     va_end(args);
 }
 
+void handle_input_devices(bool should_enable) {
+    int n_devices = sizeof(toggled_devices) / sizeof(toggled_devices[0]);
+    for (int i = 0; i < n_devices; i++) {
+        system_fmt("swaymsg \"input %s events %s\"", toggled_devices[i],
+                   should_enable ? "enabled" : "disabled");
+    }
+}
+
 void handle_orientation(enum Orientation orientation) {
     switch (orientation) {
         case Normal:
             system_fmt("swaymsg \"output %s transform 0\"", output);
+            handle_input_devices(true);
             break;
 
         case BottomUp:
             system_fmt("swaymsg \"output %s transform 180\"", output);
+            handle_input_devices(false);
             break;
 
         case LeftUp:
             system_fmt("swaymsg \"output %s transform 270\"", output);
+            handle_input_devices(false);
             break;
 
         case RightUp:
             system_fmt("swaymsg \"output %s transform 90\"", output);
+            handle_input_devices(false);
             break;
 
         default:
