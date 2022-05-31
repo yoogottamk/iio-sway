@@ -1,10 +1,10 @@
+#include <dbus/dbus.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <dbus/dbus.h>
 
 enum Orientation { Undefined, Normal, RightUp, LeftUp, BottomUp };
 
@@ -106,36 +106,29 @@ void handle_orientation(enum Orientation orientation) {
 }
 
 DBusMessage* request_orientation(DBusConnection* conn) {
-
     // create request calling Get method
     DBusMessage* req = dbus_message_new_method_call(
-        "net.hadess.SensorProxy", // destination
-        "/net/hadess/SensorProxy", // path
-        "org.freedesktop.DBus.Properties", // iface
-        "Get" // method
+        "net.hadess.SensorProxy",           // destination
+        "/net/hadess/SensorProxy",          // path
+        "org.freedesktop.DBus.Properties",  // iface
+        "Get"                               // method
     );
 
     // append arguments of Get method to request
     const char* interface_name = "net.hadess.SensorProxy";
     const char* property_name = "AccelerometerOrientation";
-    dbus_message_append_args(req,
-        DBUS_TYPE_STRING, &interface_name,
-        DBUS_TYPE_STRING, &property_name,
-        DBUS_TYPE_INVALID
-    );
+    dbus_message_append_args(req, DBUS_TYPE_STRING, &interface_name,
+                             DBUS_TYPE_STRING, &property_name,
+                             DBUS_TYPE_INVALID);
 
     // send request and get reply
     DBusMessage* reply = dbus_connection_send_with_reply_and_block(
-        conn,
-        req,
-        DBUS_TIMEOUT_INFINITE,
-        &error
-    );
+        conn, req, DBUS_TIMEOUT_INFINITE, &error);
 
     // check reply
     if (dbus_error_is_set(&error)) {
-        printf("Error receiving orientation request: %s: %s\n",
-               error.name, error.message);
+        printf("Error receiving orientation request: %s: %s\n", error.name,
+               error.message);
     }
 
     // clean up and return
@@ -147,13 +140,14 @@ enum Orientation parse_orientation_reply(DBusMessage* reply) {
     DBusMessageIter iter, sub_iter;
     const char* orientation;
     dbus_message_iter_init(reply, &iter);
-    dbus_message_iter_recurse(&iter, &sub_iter); // DBUS_TYPE_VARIANT
-    dbus_message_iter_get_basic(&sub_iter, &orientation); // DBUS_TYPE_STRING
+    dbus_message_iter_recurse(&iter, &sub_iter);           // DBUS_TYPE_VARIANT
+    dbus_message_iter_get_basic(&sub_iter, &orientation);  // DBUS_TYPE_STRING
     return property_to_enum(orientation);
 }
 
 void init_orientation(DBusConnection* conn) {
-// this function proactively requests current orientation, even if not changed
+    // this function proactively requests current orientation, even if not
+    // changed
     DBusMessage* reply = request_orientation(conn);
     if (reply != NULL) {
         handle_orientation(parse_orientation_reply(reply));
@@ -162,11 +156,13 @@ void init_orientation(DBusConnection* conn) {
 }
 
 void listen_orientation(DBusConnection* connection) {
-// this function passively listens for changes to orientation
+    // this function passively listens for changes to orientation
     DBusMessage* msg;
-    dbus_bus_add_match(connection,
-        "type='signal',interface='org.freedesktop.DBus.Properties'", &error);
-    dbus_bus_add_match(connection,
+    dbus_bus_add_match(
+        connection, "type='signal',interface='org.freedesktop.DBus.Properties'",
+        &error);
+    dbus_bus_add_match(
+        connection,
         "type='signal',sender='org.freedesktop.DBus',interface='org."
         "freedesktop.DBus',member='NameOwnerChanged',arg0='net.hadess."
         "SensorProxy'",
@@ -176,7 +172,7 @@ void listen_orientation(DBusConnection* connection) {
         msg = dbus_connection_pop_message(connection);
         if (msg != NULL) {
             if (dbus_message_is_signal(msg, "org.freedesktop.DBus.Properties",
-                    "PropertiesChanged")) {
+                                       "PropertiesChanged")) {
                 handle_orientation(parse_orientation_signal(msg));
             } else {
                 dbus_message_unref(msg);
